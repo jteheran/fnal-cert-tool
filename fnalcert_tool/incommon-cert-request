@@ -1,0 +1,22 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+"""
+This script is used to submit multiple certificate requests to InCommon certificate service.
+The intended user for the script is the Department Registration Authority Officer (DRAO) with auto-approval enabled.
+This script works in two modes:
+1) Requesting single host certificate with -H option
+2) Request multiple host certificates with hostnames stored in a file -f option
+
+This script retrieves the certificates and output a set of files: hostname.key (private key) and hostname.pem (certificate)
+"""
+
+import httplib
+import socket
+import sys
+import os
+
+from ssl import SSLError
+from optparse import OptionParser, OptionGroup
+from M2Crypto import SSL
+
