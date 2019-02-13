@@ -14,6 +14,7 @@ This script retrieves the certificates and output a set of files: hostname.key (
 import socket
 import sys
 import os
+import time
 
 from ssl import SSLError
 from optparse import OptionParser, OptionGroup
@@ -64,6 +65,13 @@ or specify from a file using -f/--hostfile.''')
         help="Write the output files to this directory",
         default='.'
         )
+    parser.add_option(
+        '-s',
+        '--certsignrequest',
+        action='store',
+        dest='csr',
+        help="Contains the certificate signing request"
+    )
     parser.add_option(
         '-a',
         '--altname',
@@ -124,6 +132,7 @@ or specify from a file using -f/--hostfile.''')
     arguments.update({'hostname': args.hostname})
     arguments.update({'login': args.login })
     arguments.update({'password': args.password})
+    arguments.update({'csr': args.csr})
     #arguments.update({'timeout': timeout})
     #print('Using timeout of %d minutes' % timeout)
     arguments.update({'alt_names': args.alt_names})
@@ -149,14 +158,22 @@ if __name__ == '__main__':
 
         client = InCommonApiClient('https://cert-manager.com/api/ssl/v1/',1000)
 
-        if 'hostname' in ARGS:
-            hosts = [tuple([ARGS['hostname'].strip()] + ARGS['alt_names'])]
-        else:
-            with open(ARGS['hostfile'], 'rb') as hosts_file:
-                host_lines = hosts_file.readlines()
-            hosts = [tuple(line.split()) for line in host_lines if line.strip()]
+        #if 'hostname' in ARGS:
+        #    hosts = [tuple([ARGS['hostname'].strip()] + ARGS['alt_names'])]
+        #else:
+        #    with open(ARGS['hostfile'], 'rb') as hosts_file:
+        #        host_lines = hosts_file.readlines()
+        #    hosts = [tuple(line.split()) for line in host_lines if line.strip()]
 
-        print(ARGS['login'])
+        if ARGS['csr'] is None:
+            print("No CSR was provided")
+            sys.exit(1)
+        else:
+            try:
+                csr = format_csr(open(ARGS['csr'], 'rb').read())
+            except OSError, exc:
+                charlimit_textwrap("CSR not found")
+                sys.exit(1)
 
         headers = {
             'content-type': 'application/json',
@@ -165,23 +182,35 @@ if __name__ == '__main__':
             'customerUri': 'InCommon'
         }
 
+        # Create conf file  for these parameters: orgId, certType, serverType, term
+        print(csr)
         data = {
             'orgId': '9732',
-            'csr': '',
+            'csr': csr,
             'certType': 215,
             'numberServers': 0,
             'serverType': -1,
             'term': 395,
             'comments': 'host certificate'
         }
+        
+        request_response = client.post_request('enroll?', headers, data)
+        # Handle requests exception above
+        # response should be 200 Ok, build it in the new InCommonConnectAPI using M2Crypto
+        # Retry 5 times to submit the request, skip if fails, inform the user
+        response_data = request_response.json()
+        sslId = response_data['sslId']
+        print(sslId)
 
-        response = client.get_request('collect/1191152/x509CO', headers)
-        print(response)
-        response = client.get_request('types', headers)
-        print(response)
+        if sslId:
+            time.sleep(30)
+            retrieve_response = client.get_request('collect/' + str(sslId) + '/x509CO', headers)
+            print(retrieve_response)
+        
+        # At this point, the pkey for this hostname should exist, not sure if rechecking for the 
+        # .key file must be done before  writing the output file with the certificate
 
     except SystemExit:
         # We need to specifically catch sys.exit() so that it doesn't hit the catchall Exception below and
-        # print a confusing message for the user (SOFTWARE-1584)
         raise
     sys.exit(0)

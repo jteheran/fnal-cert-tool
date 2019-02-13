@@ -35,6 +35,11 @@ def handle_empty_exceptions(exc):
     charlimit_textwrap('Encountered exception of type %s' % exc.__class__.__name__)
     #charlimit_textwrap('Please report the bug to %s.' % HELP_EMAIL)
 
+def format_csr(csr):
+    """Extract the base64 encoded string from the contents of a CSR"""
+    return csr.replace('-----BEGIN CERTIFICATE REQUEST-----\n', '')\
+              .replace('-----END CERTIFICATE REQUEST-----\n', '')\
+              .replace('\n', '')
 
 class Cert(object):
 
