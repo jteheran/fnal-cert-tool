@@ -11,12 +11,177 @@ This script works in two modes:
 This script retrieves the certificates and output a set of files: hostname.key (private key) and hostname.pem (certificate)
 """
 
-import httplib
 import socket
 import sys
 import os
 
 from ssl import SSLError
 from optparse import OptionParser, OptionGroup
-from M2Crypto import SSL
 
+from rest_client import InCommonApiClient
+from ExceptionDefinitions import *
+from utils import *
+
+# Set up Option Parser
+#
+
+def parse_args():
+    """This function parses all the arguments, validates them and then stores them
+    in a dictionary that is used throughout the script."""
+
+    usage = \
+        'usage: %prog [options] arg\nUsage: %prog -h/--help [for detailed explanations of options]'
+    parser = OptionParser(usage)
+    group = OptionGroup(parser, 'Hostname Options',
+                        '''Use either of these options.
+Specify hostname as a single hostname using -H/--hostname
+or specify from a file using -f/--hostfile.''')
+    group.add_option(
+        '-H',
+        '--hostname',
+        action='store',
+        dest='hostname',
+        help='Specify the hostname or service/hostname for which you want to request ' + \
+        'the certificate for. If specified, -f/--hostfile will be ignored',
+        metavar='HOSTNAME',
+        default=None,
+        )
+    group.add_option(
+        '-f',
+        '--hostfile',
+        action='store',
+        dest='hostfile',
+        help='Filename with one host (hostname or service/hostname and its optional,' + \
+        'alternative hostnames, separated by spaces) per line',
+        metavar='HOSTFILE',
+        default=None,
+        )
+    parser.add_option(
+        '-d',
+        '--directory',
+        action='store',
+        dest='write_directory',
+        help="Write the output files to this directory",
+        default='.'
+        )
+    parser.add_option(
+        '-a',
+        '--altname',
+        action='append',
+        dest='alt_names',
+        help='Specify an alternative hostname for CSR (FQDN). May be used more than ' + \
+             'once and if specified, -f/--hostfile will be ignored',
+        metavar='HOSTNAME',
+        default=[]
+    )
+    parser.add_option(
+        '-u',
+        '--username',
+        action='store',
+        dest='login',
+        help='Provide the InCommon username',
+        metavar='LOGIN',
+        default=[]
+    )
+    parser.add_option(
+        '-p',
+        '--password',
+        action='store',
+        dest='password',
+        help='Provide the InCommon password',
+        metavar='PASSWORD',
+        default=[]
+    )
+    parser.add_option_group(group)
+    (args, values) = parser.parse_args()
+
+    # if args.version_info:
+    #     version_info()
+    #     sys.exit(0)
+
+    if not args.hostname:
+        if args.hostfile is None:
+            raise InsufficientArgumentException("InsufficientArgumentException: " + \
+                                                "Please provide hostname(-H) or file name containing hosts(-f)\n")
+        else:
+            hostfile = args.hostfile
+    else:
+        hostname = args.hostname
+
+    #timeout = int(args.timeout)
+    #if not timeout >= 0:
+    #    raise ValueError('Invalid timeout value. Please enter a non-negative integer value.\n')
+
+    if not args.hostname:
+        if os.path.exists(hostfile):
+            pass
+        else:
+            raise FileNotFoundException(hostfile, 'Could not locate the hostfile')
+
+    arguments = dict()
+    arguments.update({'args': args})
+    arguments.update({'values': values})
+    arguments.update({'hostname': args.hostname})
+    arguments.update({'login': args.login })
+    arguments.update({'password': args.password})
+    #arguments.update({'timeout': timeout})
+    #print('Using timeout of %d minutes' % timeout)
+    arguments.update({'alt_names': args.alt_names})
+
+    # Organization options
+
+
+    #arguments.update({'certdir': args.write_directory})
+    #arguments.update({'hostfile': hostfile})
+
+    return arguments
+
+
+if __name__ == '__main__':
+    try:
+        #os.umask(0177)
+        ARGS = parse_args()
+        #CONFIG = read_config(ARGS['test'])
+        #check_permissions(ARGS['certdir'])
+        #ssl_context = get_ssl_context(ARGS['usercert'], ARGS['userprivkey'])
+
+        #OSGPKIUtils.start_timeout_clock(ARGS['timeout'])
+
+        client = InCommonApiClient('https://cert-manager.com/api/ssl/v1/',1000)
+
+        if 'hostname' in ARGS:
+            hosts = [tuple([ARGS['hostname'].strip()] + ARGS['alt_names'])]
+        else:
+            with open(ARGS['hostfile'], 'rb') as hosts_file:
+                host_lines = hosts_file.readlines()
+            hosts = [tuple(line.split()) for line in host_lines if line.strip()]
+
+        print(ARGS['login'])
+
+        headers = {
+            'content-type': 'application/json',
+            'login': ARGS['login'],
+            'password': ARGS['password'],
+            'customerUri': 'InCommon'
+        }
+
+        data = {
+            'orgId': '9732',
+            'csr': '',
+            'certType': 215,
+            'numberServers': 0,
+            'serverType': -1,
+            'term': 395,
+            'comments': 'host certificate'
+        }
+
+        response = client.get_request('collect/1191152/x509CO', headers)
+        print(response)
+        response = client.get_request('types', headers)
+        print(response)
+
+    except SystemExit:
+        # We need to specifically catch sys.exit() so that it doesn't hit the catchall Exception below and
+        # print a confusing message for the user (SOFTWARE-1584)
+        raise
+    sys.exit(0)
