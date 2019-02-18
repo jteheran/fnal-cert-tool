@@ -3,6 +3,8 @@ from urlparse import urljoin
 
 import requests
 
+from ExceptionDefinitions import *
+
 logger = logging.getLogger(__name__)
 
 class InCommonApiClient:
@@ -18,9 +20,15 @@ class InCommonApiClient:
         self.api_timeout = api_timeout
     
     def post_request(self, url, headers, data):
-        #
+        """
+        Args:
+            url (string): url to send the request
+            data (json):body containing information
+            headers (json): additional headers to complete the request
+        """
+        
         url = urljoin(self.base_url, url)
-
+        
         try:
             post_response = requests.post(
                 url,
@@ -28,43 +36,33 @@ class InCommonApiClient:
                 json=data,
                 timeout=int(self.api_timeout)
             )
-        except requests.exceptions.RequestException as exc:
-            logger.error(
-                'Could not connect to InCommon API',
-                exc_info=True,
-                extra={
-                    'url': url,
-                    'data': data,
-                    'api_timeout': self.api_timeout,
-                },
-            )
+            post_response.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            raise AuthenticationFailureException(post_response.status_code, exc)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            raise ConnectionFailureException(exc)
 
         return post_response
 
     def get_request(self, url, headers):
         """
-
         Args:
             url (string): url to send the request
+            headers (json): additional headers to complete the request
         """
         url = urljoin(self.base_url, url)
+        
         try:
             get_response = requests.get(
                 url,
                 headers=headers,
                 timeout=int(self.api_timeout)
             )
-        except requests.exceptions.RequestException as exc:
-            logger.error(
-                'Could not connect to InCommon API',
-                exc_info=True,
-                extra={
-                    'url': url,
-                    'api_timeout': self.api_timeout,
-                },
-            )
+            get_response.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            raise AuthenticationFailureException(get_response.status_code, exc)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            raise ConnectionFailureException(exc)
 
-        return get_response.text
-
-
+        return get_response
 
