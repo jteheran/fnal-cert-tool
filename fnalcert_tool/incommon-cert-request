@@ -381,7 +381,7 @@ if __name__ == '__main__':
     except FileNotFoundException as exc:
         charlimit_textwrap(str(exc) + ':' + exc.filename)
         sys.exit(1)
-    except Exception as exc:
+    except Exception:
         traceback.print_exc()
         sys.exit(1)
     sys.exit(0)
