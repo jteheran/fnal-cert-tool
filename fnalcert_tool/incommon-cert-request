@@ -24,6 +24,10 @@ from ExceptionDefinitions import *
 from utils import *
 from rest_client import InCommonApiClient
 
+import logging
+logger = logging.getLogger('incommon_cert_request')
+logging.basicConfig()
+
 # Set up Option Parser
 
 def parse_args():
@@ -121,9 +125,22 @@ or specify from a file using -f/--hostfile.''')
         help='Test connection to InCommon API. Useful to test authentication credentials',
         default=False
     )
+    parser.add_option(
+        '',
+        '--debug',
+        dest='debug',
+        help="Write debug output to stdout",
+        action='store_true',
+        default=False
+    )
     
     parser.add_option_group(group)
     (args, values) = parser.parse_args()
+
+    if args.debug:
+        # this sets the root debug level
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug('Debug mode enabled')
 
     if not args.test:
         if not args.hostname:
@@ -307,6 +324,7 @@ if __name__ == '__main__':
             
             charlimit_textwrap('CN: %s, SANS: %s' % (common_name, sans))
             cert_obj = Cert(common_name, ARGS['certdir'], altnames=sans)
+            logger.debug(cert_obj.x509request.as_text())
             certs.append(cert_obj)
 
         charlimit_textwrap('===========================================================')
@@ -362,8 +380,7 @@ if __name__ == '__main__':
     except FileNotFoundException as exc:
         charlimit_textwrap(str(exc) + ':' + exc.filename)
         sys.exit(1)
-    except Exception:
-        print_uncaught_exception()
-        charlimit_textwrap('Uncaught Exception : Please report the bug to %s.' % OSGPKIUtils.HELP_EMAIL)
+    except Exception as exc:
+        print_exception_message(exc)
         sys.exit(1)
     sys.exit(0)

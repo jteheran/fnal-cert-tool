@@ -29,6 +29,11 @@ class InCommonApiClient:
         
         url = urljoin(self.base_url, url)
         
+        logger.debug('posting to ' + url)
+        logger.debug('headers ' + str(headers))
+        logger.debug('data ' + str(data))
+        logger.debug('timeout ' + str(self.api_timeout))
+
         try:
             post_response = requests.post(
                 url,
@@ -36,6 +41,9 @@ class InCommonApiClient:
                 json=data,
                 timeout=int(self.api_timeout)
             )
+
+            logger.debug('post response text ' + str(post_response.text))
+
             post_response.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             raise AuthenticationFailureException(post_response.status_code, exc)
@@ -51,13 +59,20 @@ class InCommonApiClient:
             headers (json): additional headers to complete the request
         """
         url = urljoin(self.base_url, url)
-        
+
+        logger.debug('requesting to ' + url)
+        logger.debug('headers ' + str(headers))
+        logger.debug('timeout ' + str(self.api_timeout))
+
         try:
             get_response = requests.get(
                 url,
                 headers=headers,
                 timeout=int(self.api_timeout)
             )
+
+            logger.debug('get response text' + str(get_response.text))
+
             get_response.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             raise AuthenticationFailureException(get_response.status_code, exc)
