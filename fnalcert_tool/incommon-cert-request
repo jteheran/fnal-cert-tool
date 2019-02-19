@@ -251,7 +251,7 @@ def submit_request(config, hostname, cert_csr, sans=None, sslcontext=None):
         numberServers=0,
         serverType=config['servertype'],
         term=config['term'],
-        comments="Certificate request for " + str(hostname)
+        comments="Certificate request for " + hostname
     )
    
     if sans:
@@ -333,12 +333,13 @@ if __name__ == '__main__':
         charlimit_textwrap('===========================================================')
 
         for cert in certs:
-            charlimit_textwrap('Requesting certificate for %s' % cert.x509request.get_subject())
-            response_request = submit_request(CONFIG, cert.x509request.get_subject(), cert.base64_csr(), sans=cert.altnames)
+            subj = str(cert.x509request.get_subject())
+            charlimit_textwrap('Requesting certificate for %s' % subj)
+            response_request = submit_request(CONFIG, subj, cert.base64_csr(), sans=cert.altnames)
         
             #response_request stores the sslId for the certificate request
             if response_request:
-                requests.append(tuple([response_request, str(cert.x509request.get_subject())]))
+                requests.append(tuple([response_request, subj]))
 
                 print("Writing %s" % cert.final_keypath)
                 cert.write_pkey()
