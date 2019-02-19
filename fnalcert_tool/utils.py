@@ -68,7 +68,7 @@ def atomic_write(filename, contents):
     temp_file = tempfile.NamedTemporaryFile(dir=os.path.dirname(filename))
     temp_file.write(contents)
     temp_file.flush()
-    shutil.copy2(temp_file.name, filename)
+    shutil.move(temp_file.name, filename)
 
 def check_response_500(response):
     """ This functions handles the 500 error response from the server"""
