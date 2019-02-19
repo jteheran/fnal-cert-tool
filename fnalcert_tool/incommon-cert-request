@@ -335,14 +335,16 @@ if __name__ == '__main__':
         
             #response_request stores the sslId for the certificate request
             if response_request:
-                requests.append(tuple([response_request, cert]))
+                requests.append(tuple([response_request, str(cert.x509request.get_subject())]))
+
+                print("Writing %s" % cert.final_keypath)
+                cert.write_pkey()
         
         charlimit_textwrap('Waiting 30 seconds for certificate approval...')
         time.sleep(30) 
         
         for request in requests:
-            cert = request[1]
-            subj = str(cert.x509request.get_subject())
+            subj = request[1]
             charlimit_textwrap('Retrieving certificate for %s' % subj)
             response_retrieve = retrieve_cert(CONFIG, request[0])
 
@@ -351,9 +353,6 @@ if __name__ == '__main__':
                 print("Writing %s" % cert_path)
                 safe_rename(cert_path)
                 atomic_write(cert_path, response_retrieve)
-
-                print("Writing %s" % cert.final_keypath)
-                cert.write_pkey()
         
         charlimit_textwrap("%s certificates were specified" % len(certs))
         charlimit_textwrap("%s certificates were requested and retrieved successfully" % len(requests))
