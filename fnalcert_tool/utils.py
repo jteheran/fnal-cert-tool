@@ -65,10 +65,10 @@ def format_csr(csr):
 def atomic_write(filename, contents):
     """Write to a temporary file then move it to its final location
     """
-    temp_file = tempfile.NamedTemporaryFile(dir=os.path.dirname(filename))
-    temp_file.write(contents)
-    temp_file.flush()
-    shutil.copy2(temp_file.name, filename)
+    temp_fd, temp_name = tempfile.mkstemp(dir=os.path.dirname(filename))
+    os.write(temp_fd, contents)
+    os.close(temp_fd)
+    os.rename(temp_name, filename)
 
 def check_response_500(response):
     """ This functions handles the 500 error response from the server"""
