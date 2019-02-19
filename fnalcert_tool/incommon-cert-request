@@ -332,33 +332,30 @@ if __name__ == '__main__':
 
         charlimit_textwrap('===========================================================')
 
-        if len(certs):
-            for cert in certs:
-                charlimit_textwrap('Requesting certificate for %s' % cert.x509request.get_subject())
-                response_request = submit_request(CONFIG, cert.x509request.get_subject(), cert.base64_csr(), sans=cert.altnames)
-                
-                #response_request stores the sslId for the certificate request
-                if response_request:
-                    requests.append(tuple([response_request] + [str(cert.x509request.get_subject())]))
-                    charlimit_textwrap("Writing key(s) for %s" % cert.x509request.get_subject())
-                    cert.write_pkey()
-                else:
-                    os.remove(cert.newkey)
+        for cert in certs:
+            charlimit_textwrap('Requesting certificate for %s' % cert.x509request.get_subject())
+            response_request = submit_request(CONFIG, cert.x509request.get_subject(), cert.base64_csr(), sans=cert.altnames)
+        
+            #response_request stores the sslId for the certificate request
+            if response_request:
+                requests.append(tuple([response_request, str(cert.x509request.get_subject())]))
+
+                print("Writing %s" % cert.final_keypath)
+                cert.write_pkey()
         
         charlimit_textwrap('Waiting 30 seconds for certificate approval...')
         time.sleep(30) 
         
-        if len(requests):
-            for request in requests:
-                charlimit_textwrap('Retrieving certificate for %s' % request[1])
-                response_retrieve = retrieve_cert(CONFIG, request[0])
+        for request in requests:
+            subj = request[1]
+            charlimit_textwrap('Retrieving certificate for %s' % subj)
+            response_retrieve = retrieve_cert(CONFIG, request[0])
 
-                if response_retrieve is not None:
-                    charlimit_textwrap("Writing out .pem file for %s" % request[1])
-                    cert_path = os.path.join(ARGS['certdir'], request[1].split("=")[1] + '.pem')
-                    safe_rename(cert_path)
-                    atomic_write(cert_path, response_retrieve)
-
+            if response_retrieve is not None:
+                cert_path = os.path.join(ARGS['certdir'], subj.split("=")[1] + '-cert.pem')
+                print("Writing %s" % cert_path)
+                safe_rename(cert_path)
+                atomic_write(cert_path, response_retrieve)
         
         charlimit_textwrap("%s certificates were specified" % len(certs))
         charlimit_textwrap("%s certificates were requested and retrieved successfully" % len(requests))

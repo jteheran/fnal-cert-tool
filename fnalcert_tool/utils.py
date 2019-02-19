@@ -173,9 +173,8 @@ class Cert(object):
     PUB_EXPONENT = 0x10001
 
     def __init__(self, common_name, output_dir=None, altnames=None):
-        """Create a certificate request (stored in the x509request attribute) and associated key file that is written to
-        a temporary location (stored in the newkey attribute). It is up to the caller to write_pkey or clean up the
-        temporary keys
+        """Create a certificate request (stored in the x509request attribute) and associated keys (stored in keypair attribute).
+        The caller should use write_pkey to write private key when ready.
 
         This function accepts the CN and final path for the key as well as optional list of subject alternative names
         and optional requestor e-mail.  """
@@ -186,18 +185,14 @@ class Cert(object):
 
         if not output_dir:
             output_dir = os.getcwd()
+        self.output_dir = output_dir
         self.final_keypath = os.path.join(output_dir, escaped_common_name + '-key.pem')
-        temp_key = tempfile.NamedTemporaryFile(dir=output_dir, delete=False)
-        self.newkey = temp_key.name
-
         # The message digest shouldn't matter here since we don't use
         # PKey.sign_*() or PKey.verify_*() but there's no harm in keeping it and
         # it ensures a strong hashing algo (default is sha1) if we do decide to
         # sign things in the future
         self.pkey = EVP.PKey(md='sha256')
         self.pkey.assign_rsa(self.keypair)
-        self.keypair.save_key(self.newkey, cipher=None)
-        temp_key.close()
 
         self.x509request = X509.Request()
         x509name = X509.X509_Name()
@@ -232,12 +227,18 @@ class Cert(object):
         return None
 
     def write_pkey(self, keypath=None):
-        """Move the instance's newkey to keypath, backing up keypath to keypath.old if necessary"""
+        """Write the instance's private key to keypath, backing up keypath to keypath.old if necessary"""
         if not keypath:
             keypath = self.final_keypath
+
         # Handle already existing key file...
         safe_rename(keypath)
-        os.rename(self.newkey, keypath)
+
+        # this is like atomic_write except writing with save_key
+        temp_fd, temp_name = tempfile.mkstemp(dir=self.output_dir)
+        os.close(temp_fd)
+        self.keypair.save_key(temp_name, cipher=None)
+        os.rename(temp_name, keypath)
 
     def base64_csr(self):
         """Extract the base64 encoded string from the contents of a certificate signing request"""
