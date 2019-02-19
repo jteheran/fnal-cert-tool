@@ -11,6 +11,8 @@ This script works in two modes:
 This script retrieves the certificates and output a set of files: hostname.key (private key) and hostname.pem (certificate)
 """
 
+version="0.2"
+
 import httplib
 import socket
 import sys
@@ -36,7 +38,7 @@ def parse_args():
 
     usage = \
         'usage: %prog [options] arg\nUsage: %prog -h/--help [for detailed explanations of options]'
-    parser = OptionParser(usage)
+    parser = OptionParser(usage, version=version)
     group = OptionGroup(parser, 'Hostname Options',
                         '''Use either of these options.
 Specify hostname as a single hostname using -H/--hostname
