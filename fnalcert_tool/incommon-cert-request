@@ -16,6 +16,7 @@ import socket
 import sys
 import os
 import time
+import traceback
 
 from ssl import SSLError
 from optparse import OptionParser, OptionGroup
@@ -381,6 +382,6 @@ if __name__ == '__main__':
         charlimit_textwrap(str(exc) + ':' + exc.filename)
         sys.exit(1)
     except Exception as exc:
-        print_exception_message(exc)
+        traceback.print_exc()
         sys.exit(1)
     sys.exit(0)
