@@ -97,6 +97,14 @@ def safe_rename(filename):
             charlimit_textwrap(exc.message)
             raise RuntimeError('ERROR: Failed to rename %s to %s' % (filename, old_filename))
 
+def check_permissions(path):
+    """The function checks for write permissions for the given path to verify if the user has write permissions
+    """
+    if os.access(path, os.W_OK):
+        return
+    else:
+        raise FileWriteException("User does not have appropriate permissions for writing to current directory.")
+
 def find_user_cred(usercert=None, userkey=None):
     """Find a readable user cert/key pair, trying pairs in the following order:
     1. usercert, userkey
@@ -108,6 +116,7 @@ def find_user_cred(usercert=None, userkey=None):
     OUTPUT
     Paths to the user cert and key
     """
+    
     # list of cert/key pairs to try
     input_pairs = [(usercert, userkey),
                    ((os.environ.get('X509_USER_CERT'), os.environ.get('X509_USER_KEY'))),
@@ -126,34 +135,6 @@ def find_user_cred(usercert=None, userkey=None):
     raise IOError("Unable to read the following certificate/key pairs:\n- %s" %
                   "\n- ".join([", ".join(pair) for pair in cert_key_pairs]))
 
-def get_ssl_context(usercert, userkey):
-    """ This function sets the ssl context by accepting the passphrase
-    and validating it for user private key and his certificate
-    INPUT
-    cert: Filename for user certificate.
-    key: Filename for private key of user.
-    OUTPUT
-    SSL.Context() object for the HTTPS connection.
-    """
-    pass_str = 'Please enter the pass phrase for'
-    for _ in range(0, 2): # allow two password attempts
-        def prompt_for_password(verify):
-            return getpass.getpass(pass_str+" '%s':" % userkey)
-
-        ssl_context = SSL.Context()
-        ssl_context.set_options(m2.SSL_OP_NO_SSLv2 | m2.SSL_OP_NO_SSLv3)
-
-        try:
-            ssl_context.load_cert_chain(usercert, userkey, callback=prompt_for_password)
-            return ssl_context
-        except SSL.SSLError, exc:
-            if 'bad password read' in exc:
-                pass_str = 'Incorrect password. Please enter the password again for'
-            else:
-                raise
-
-    # if we fell off the loop, the passphrase was incorrect twice
-    raise BadPassphraseException('Incorrect passphrase. Attempt failed twice. Exiting script')
 
 def print_failure_reason_exit(data):
     """This functions prints the failure reasons and exits"""

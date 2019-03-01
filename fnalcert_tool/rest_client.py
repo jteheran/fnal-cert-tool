@@ -1,25 +1,29 @@
 import logging
-from urlparse import urljoin
+import requests 
 
-import requests
+from urlparse import urljoin
+from requests import Session
 
 from ExceptionDefinitions import *
 
 logger = logging.getLogger(__name__)
 
-class InCommonApiClient:
+class InCommonApiClient():
 
-    def __init__(self, base_url, api_timeout):
-        """Setting up all the parameters used by the class
+    def __init__(self, base_url, *args, **kwargs):
+        """base_url and api_timeout
 
         Args:
-            base_url (string): Will be used to connect to the InCommonAPI
+            base_url (string): Will be used to connect to the InCommon API (cert-auth) 
         """
         
         self.base_url = base_url
-        self.api_timeout = api_timeout
-    
-    def post_request(self, url, headers, data):
+        self.session = requests.Session()
+
+    def getSession(self):
+        return self.session
+
+    def post_request(self, url, data):
         """
         Args:
             url (string): url to send the request
@@ -30,17 +34,10 @@ class InCommonApiClient:
         url = urljoin(self.base_url, url)
         
         logger.debug('posting to ' + url)
-        logger.debug('headers ' + str(headers))
         logger.debug('data ' + str(data))
-        logger.debug('timeout ' + str(self.api_timeout))
 
         try:
-            post_response = requests.post(
-                url,
-                headers=headers,
-                json=data,
-                timeout=int(self.api_timeout)
-            )
+            post_response = self.session.post(url, json=data)
 
             logger.debug('post response text ' + str(post_response.text))
 
@@ -52,7 +49,7 @@ class InCommonApiClient:
 
         return post_response
 
-    def get_request(self, url, headers):
+    def get_request(self, url):
         """
         Args:
             url (string): url to send the request
@@ -61,15 +58,9 @@ class InCommonApiClient:
         url = urljoin(self.base_url, url)
 
         logger.debug('requesting to ' + url)
-        logger.debug('headers ' + str(headers))
-        logger.debug('timeout ' + str(self.api_timeout))
 
         try:
-            get_response = requests.get(
-                url,
-                headers=headers,
-                timeout=int(self.api_timeout)
-            )
+            get_response = self.session.get(url)
 
             logger.debug('get response text' + str(get_response.text))
 
