@@ -1,16 +1,20 @@
+import httplib
 import logging
-import requests 
+import socket
+import M2Crypto
+import urllib
 
+from json import dumps
 from urlparse import urljoin
-from requests import Session
 
 from ExceptionDefinitions import *
+from utils import *
 
 logger = logging.getLogger(__name__)
 
 class InCommonApiClient():
 
-    def __init__(self, base_url, *args, **kwargs):
+    def __init__(self, base_url, ssl_context, *args, **kwargs):
         """base_url and api_timeout
 
         Args:
@@ -18,12 +22,12 @@ class InCommonApiClient():
         """
         
         self.base_url = base_url
-        self.session = requests.Session()
+        self.connection = M2Crypto.httpslib.HTTPSConnection(base_url, strict=False, ssl_context=ssl_context)
+    
+    def closeConnection(self):
+        self.connection.close()
 
-    def getSession(self):
-        return self.session
-
-    def post_request(self, url, data):
+    def post_request(self, url, headers, data):
         """
         Args:
             url (string): url to send the request
@@ -35,21 +39,25 @@ class InCommonApiClient():
         
         logger.debug('posting to ' + url)
         logger.debug('data ' + str(data))
-
+        
+        params = urllib.urlencode(data, doseq=True)
+        
         try:
-            post_response = self.session.post(url, json=data)
+            self.connection.request("POST", url, body=dumps(data), headers=headers)
 
-            logger.debug('post response text ' + str(post_response.text))
+            post_response = self.connection.getresponse()
 
-            post_response.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
-            raise AuthenticationFailureException(post_response.status_code, exc)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
-            raise ConnectionFailureException(exc)
+            check_response_500(post_response)
+
+            logger.debug('post response text ' + str(post_response.status) + ': ' + str(post_response.reason))
+
+        except httplib.HTTPException as exc:
+            charlimit_textwrap('Connection to %s failed : %s' % (url, exc))
+            raise
 
         return post_response
 
-    def get_request(self, url):
+    def get_request(self, url, headers):
         """
         Args:
             url (string): url to send the request
@@ -58,17 +66,19 @@ class InCommonApiClient():
         url = urljoin(self.base_url, url)
 
         logger.debug('requesting to ' + url)
-
+        
         try:
-            get_response = self.session.get(url)
-
-            logger.debug('get response text' + str(get_response.text))
-
-            get_response.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
-            raise AuthenticationFailureException(get_response.status_code, exc)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
-            raise ConnectionFailureException(exc)
-
+            self.connection.request("GET", url, None, headers)
+            get_response = self.connection.getresponse()
+            
+            check_response_500(get_response)
+        
+            logger.debug('get response text' + str(get_response.status) + ': ' + str(get_response.reason))
+        except httplib.BadStatusLine as exc:
+            raise
+        except httplib.HTTPException as exc:
+            charlimit_textwrap('Connection to %s failed : %s' % (url, exc))
+            raise
+       
         return get_response
 
