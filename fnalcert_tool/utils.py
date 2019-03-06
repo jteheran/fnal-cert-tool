@@ -27,6 +27,37 @@ MBSTRING_ASC = MBSTRING_FLAG | 1
 MBSTRING_BMP = MBSTRING_FLAG | 2
 
 
+def get_ssl_context(usercert, userkey):
+    """ This function sets the ssl context by accepting the passphrase
+    and validating it for user private key and his certificate
+    INPUT
+        cert: Filename for user certificate.
+        key: Filename for private key of user.
+
+    OUTPUT
+        SSL.Context() object for the HTTPS connection.
+    """
+    pass_str = 'Please enter the pass phrase for'
+    for _ in range(0, 2): # allow two password attempts
+        def prompt_for_password(verify):
+            return getpass.getpass(pass_str+" '%s':" % userkey)
+
+        ssl_context = SSL.Context()
+        ssl_context.set_options(m2.SSL_OP_NO_SSLv2 | m2.SSL_OP_NO_SSLv3)
+
+        try:
+            ssl_context.load_cert_chain(usercert, userkey, callback=prompt_for_password)
+            return ssl_context
+        except SSL.SSLError, exc:
+            if 'bad password read' in exc:
+                pass_str = 'Incorrect password. Please enter the password again for'
+            else:
+                raise
+
+    # if we fell off the loop, the passphrase was incorrect twice
+    raise BadPassphraseException('Incorrect passphrase. Attempt failed twice. Exiting script')
+
+
 def charlimit_textwrap(string):
     """This function wraps up the output to 80 characters. Accepts string and print the wrapped output"""
 
@@ -34,6 +65,7 @@ def charlimit_textwrap(string):
     for line in list_string:
         print(line)
     return
+
 
 def print_exception_message(exc):
     """Checks if the str representation of the exception is empty or not
@@ -48,6 +80,7 @@ def print_exception_message(exc):
     else:
         handle_empty_exceptions(exc)
 
+
 def handle_empty_exceptions(exc):
     """The method handles all empty exceptions and displays a meaningful message and
     traceback for such exceptions."""
@@ -56,11 +89,13 @@ def handle_empty_exceptions(exc):
     charlimit_textwrap('Encountered exception of type %s' % exc.__class__.__name__)
     #charlimit_textwrap('Please report the bug to %s.' % HELP_EMAIL)
 
+
 def format_csr(csr):
     """Extract the base64 encoded string from the contents of a CSR"""
     return csr.replace('-----BEGIN CERTIFICATE REQUEST-----\n', '')\
               .replace('-----END CERTIFICATE REQUEST-----\n', '')\
               .replace('\n', '')
+
 
 def atomic_write(filename, contents):
     """Write to a temporary file then move it to its final location
@@ -70,11 +105,13 @@ def atomic_write(filename, contents):
     os.close(temp_fd)
     os.rename(temp_name, filename)
 
+
 def check_response_500(response):
     """ This functions handles the 500 error response from the server"""
 
     if response.status == 500:
         raise Exception_500response(response.status, response.reason)
+
 
 def read_config():
     config_path = r'config.ini'
@@ -84,7 +121,8 @@ def read_config():
         config.readfp(StringIO(DEFAULT_CONFIG))
     
     return dict(config.items('InCommon'))
-    
+
+
 def safe_rename(filename):
     """Renames 'filename' to 'filename.old'
     """
@@ -97,6 +135,7 @@ def safe_rename(filename):
             charlimit_textwrap(exc.message)
             raise RuntimeError('ERROR: Failed to rename %s to %s' % (filename, old_filename))
 
+
 def check_permissions(path):
     """The function checks for write permissions for the given path to verify if the user has write permissions
     """
@@ -104,6 +143,7 @@ def check_permissions(path):
         return
     else:
         raise FileWriteException("User does not have appropriate permissions for writing to current directory.")
+
 
 def find_user_cred(usercert=None, userkey=None):
     """Find a readable user cert/key pair, trying pairs in the following order:
@@ -147,6 +187,7 @@ def print_failure_reason_exit(data):
 
     separator = '='*80
     sys.exit('\n'.join(textwrap.wrap(separator + msg, width=80)))
+
 
 class Cert(object):
 
