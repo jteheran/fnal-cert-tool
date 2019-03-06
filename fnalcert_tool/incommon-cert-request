@@ -378,7 +378,6 @@ if __name__ == '__main__':
             subj = request[1]
             charlimit_textwrap('Retrieving certificate for %s' % subj)
             response_retrieve = retrieve_cert(CONFIG, ssl_context, request[0])
-            print(response_retrieve)
 
             if response_retrieve is not None:
                 cert_path = os.path.join(ARGS['certdir'], subj.split("=")[1] + '-cert.pem')
