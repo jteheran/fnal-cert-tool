@@ -26,6 +26,27 @@ MBSTRING_FLAG = 0x1000
 MBSTRING_ASC = MBSTRING_FLAG | 1
 MBSTRING_BMP = MBSTRING_FLAG | 2
 
+DEFAULT_CONFIG = """[InCommon]
+
+organization: 9697
+department: 9732
+customeruri: InCommon
+igtfservercert: 215
+igtfmultidomain: 283
+servertype: -1
+term: 395
+apiurl: cert-manager.com
+listingurl: /private/api/ssl/v1/types
+enrollurl: /private/api/ssl/v1/enroll  
+retrieveurl: /private/api/ssl/v1/collect/
+sslid: sslId
+certx509: /x509
+certx509co: /x509CO
+certbase64: /base64
+certbin: /bin
+content_type: application/json
+"""
+
 
 def get_ssl_context(usercert, userkey):
     """ This function sets the ssl context by accepting the passphrase
