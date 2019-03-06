@@ -269,7 +269,7 @@ def submit_request(config, restclient, hostname, cert_csr, sans=None):
     
     return response_data
     
-def retrieve_cert(config, restclient, sslId):
+def retrieve_cert(config, sslcontext, sslId):
     """This function retrieves a certificate given a self-enrollment certificate Id = sslId
     """
     
@@ -278,17 +278,22 @@ def retrieve_cert(config, restclient, sslId):
 
     response = None
     response_data = None    
+
     retry_count = MAX_RETRY_RETRIEVAL
     retrieve_url = config['retrieveurl'] + str(sslId) + config['certx509co']
     
     for _ in range(retry_count):
         try:
+            # If the HTTPSConnection is reused 
+            restclient = InCommonApiClient(config['apiurl'], sslcontext)
             response = restclient.get_request(retrieve_url, headers)
             # InCommon API responds with 400 Bad Request when the certificate is still being procesed
             # "code": 0, "description": "Being processed by Sectigo"
+            # It triggers the BadStatusLine exception avoiding to reuse the HTTPSConnection
             # Ignore the read() stream when status is not 200
             if response.status == 200:
                 response_data = response.read()
+                restclient.closeConnection()
                 break
             else:
                 response.read()
@@ -298,7 +303,9 @@ def retrieve_cert(config, restclient, sslId):
             pass
         except httplib.HTTPException as exc:
             raise
-        charlimit_textwrap('Waiting for %s seconds before retrying certificate retrieval' % WAIT_RETRIEVAL )
+        charlimit_textwrap('    Waiting for %s seconds before retrying certificate retrieval' % WAIT_RETRIEVAL )
+        # Closing the connection before sleeping
+        restclient.closeConnection()
         time.sleep(WAIT_RETRIEVAL)
     
     return response_data
@@ -335,7 +342,7 @@ if __name__ == '__main__':
         charlimit_textwrap('Beginning request process for the following certificate(s):')
         charlimit_textwrap('='*60)
 
-        #Building the lists with certificates --> Cert(object) 
+        # Building the lists with certificates --> Cert(object) 
         for host in set(hosts):
             common_name = host[0]
             sans = host[1:]
@@ -352,37 +359,36 @@ if __name__ == '__main__':
             charlimit_textwrap('Requesting certificate for %s' % subj)
             response_request = submit_request(CONFIG, restclient, subj, cert.base64_csr(), sans=cert.altnames)
             
-            #response_request stores the sslId for the certificate request
+            # response_request stores the sslId for the certificate request
             if response_request:
                 requests.append(tuple([response_request, subj]))
 
-                charlimit_textwrap("Writing %s" % cert.final_keypath)
+                charlimit_textwrap("Writing key file: %s" % cert.final_keypath)
                 cert.write_pkey() 
         
-        #Closing the restclient connection before going idle waiting for approval
+        # Closing the restclient connection before going idle waiting for approval
         restclient.closeConnection()
 
         charlimit_textwrap('Waiting %s seconds for certificate approval...' % WAIT_APPROVAL)
         time.sleep(WAIT_APPROVAL) 
         
-        #Instantiating a new restclient, reusing the ssl_context
-        restclient = InCommonApiClient(CONFIG['apiurl'], ssl_context)
-
+        # Certificate retrieval has to retry until it gets the certificate
+        # A restclient (InCommonApiClient) needs to be created for each retrieval attempt
         for request in requests:
             subj = request[1]
             charlimit_textwrap('Retrieving certificate for %s' % subj)
-            response_retrieve = retrieve_cert(CONFIG, restclient, request[0])
+            response_retrieve = retrieve_cert(CONFIG, ssl_context, request[0])
+            print(response_retrieve)
 
             if response_retrieve is not None:
                 cert_path = os.path.join(ARGS['certdir'], subj.split("=")[1] + '-cert.pem')
-                charlimit_textwrap("Writing %s" % cert_path)
+                charlimit_textwrap("Writing certificate file: %s" % cert_path)
                 safe_rename(cert_path)
                 atomic_write(cert_path, response_retrieve)
         
         charlimit_textwrap("%s certificates were specified" % len(certs))
         charlimit_textwrap("%s certificates were requested and retrieved successfully" % len(requests))
         
-        restclient.closeConnection()
 
     except SystemExit:
         raise
